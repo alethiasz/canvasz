@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+
+# `data/` é um repositório à parte (privado): o conteúdo não se mistura com o
+# código. Veja "Levar seu conteúdo para o GitHub" no README.
+data/
+backups/

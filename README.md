@@ -81,6 +81,56 @@ Seus dados ficam em **`./data`** no host — banco SQLite e arquivos enviados.
   para `.env` e ajuste com a saída de `id -u` e `id -g`.
 - **Porta ocupada**: defina `CANVASZ_PORT` no `.env`.
 
+## Levar seu conteúdo para o GitHub
+
+Seu conteúdo mora em `data/`, que é um **repositório próprio e privado** —
+separado do código, para que as notas não acabem numa vitrine pública.
+
+Configure uma vez:
+
+```bash
+npm run sync:init          # cria o repo privado e prepara data/
+npm run sync               # envia seu conteúdo
+```
+
+Depois, `npm run sync` é o comando único: ele consolida o banco, atualiza o
+espelho em markdown, faz o commit, puxa o que veio de outro PC e envia.
+
+Em outro computador:
+
+```bash
+git clone https://github.com/<você>/canvasz.git
+cd canvasz
+git clone https://github.com/<você>/canvasz-data.git data
+docker compose up
+```
+
+### O que vai junto
+
+| o quê | onde | serve para |
+| --- | --- | --- |
+| `canvasz.db` | banco inteiro, inclusive os desenhos | a fonte da verdade |
+| `blobs/` | os arquivos enviados, pelo SHA-256 | conteúdo original |
+| `notes/` | espelho das notas em `.md` | ler pelo site do GitHub, ver os diffs |
+
+O `notes/` é regerado a cada sincronia a partir do banco. É ele que faz um
+commit mostrar *o que* você escreveu, em vez de "arquivo binário mudou" — e é
+a sua garantia de continuar com as notas mesmo sem o canvasz um dia.
+
+### Um PC de cada vez
+
+O banco é um arquivo binário: **o git não consegue mesclar duas versões dele**.
+Se você escrever no PC A e no PC B sem sincronizar entre um e outro, o `sync`
+para e exige uma escolha, em vez de descartar algo por conta própria:
+
+```
+npm run sync -- --keep-mine     mantém o deste PC, descarta o remoto
+npm run sync -- --keep-theirs   mantém o remoto, descarta o deste PC
+```
+
+Por isso o hábito: sincronizar ao sentar e ao levantar. `npm run backup` antes,
+se estiver na dúvida.
+
 ### Backup
 
 ```bash

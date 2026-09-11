@@ -1,0 +1,24 @@
+name: canvasz
+
+services:
+  app:
+    build: .
+    image: canvasz:local
+    container_name: canvasz
+    ports:
+      # Mude CANVASZ_PORT no .env se a 8787 já estiver ocupada.
+      - "${CANVASZ_PORT:-8787}:8787"
+    environment:
+      CANVASZ_DATA: /app/data
+      CANVASZ_BACKUP: /app/backups
+      # Dono dos arquivos em ./data. O padrão 1000 cobre a maioria dos Linux;
+      # se o seu `id -u` for outro, ajuste no .env.
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+    volumes:
+      # Seus dados ficam visíveis em ./data no host — o mesmo diretório usado
+      # pelo `npm run dev`, então dá para alternar entre os dois modos.
+      - ./data:/app/data
+      # `npm run backup` grava aqui, do lado de fora do container.
+      - ./backups:/app/backups
+    restart: unless-stopped
