@@ -7,6 +7,8 @@ import { CanvasView } from './CanvasView'
 import { addFilesToCanvas } from './dropFiles'
 import { setNavigator } from './navigation'
 import { CARD_FOR_KIND } from './shapes'
+import { nomearAoCriar } from './shapes/CardTitle'
+import { notificar } from '../ui/toasts'
 import { withoutSync } from './sync'
 
 export function CanvasScreen({ canvasId }: { canvasId: string }) {
@@ -32,7 +34,7 @@ export function CanvasScreen({ canvasId }: { canvasId: string }) {
     }
     void getPath(canvasId)
       .then(({ path: segments }) => !cancelled && setPath(segments))
-      .catch((err) => console.error('[canvasz] falha ao carregar a trilha', err))
+      .catch((err) => notificar.erro('Não consegui carregar a trilha de pastas.', err))
     return () => {
       cancelled = true
     }
@@ -44,6 +46,8 @@ export function CanvasScreen({ canvasId }: { canvasId: string }) {
     try {
       const { node } = await createNode(canvasId, kind, kind === 'folder' ? 'Nova pasta' : 'Nova nota')
       useNodesStore.getState().upsert(node)
+      // O card nasce com o nome já selecionado: é só digitar.
+      nomearAoCriar(node.id)
 
       const center = editor.getViewportPageBounds().center
       const id = createShapeId()
@@ -59,7 +63,7 @@ export function CanvasScreen({ canvasId }: { canvasId: string }) {
       })
       editor.select(id)
     } catch (err) {
-      console.error(`[canvasz] falha ao criar ${kind}`, err)
+      notificar.erro(`Não consegui criar a ${kind === 'folder' ? 'pasta' : 'nota'}.`, err)
     }
   }
 
@@ -176,6 +180,7 @@ export function CanvasScreen({ canvasId }: { canvasId: string }) {
           canvasId={canvasId}
           revealNodeId={revealNodeId}
           onEditorChange={setEditor}
+          aoCriar={addCard}
         />
       </main>
     </div>

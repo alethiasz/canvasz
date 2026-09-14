@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Editor, TLShape, TLShapeId } from 'tldraw'
 import { updateNode } from '../api'
+import { notificar } from '../ui/toasts'
 import { useNodesStore } from '../nodes/store'
 import { cardNodeId } from './shapes'
 import { withoutSync } from './sync'
@@ -49,9 +50,15 @@ export async function moveCardsInto(
       movedShapeIds.push(shape.id)
       remove(nodeId)
     } catch (err) {
-      // Mover uma pasta para dentro dela mesma volta 409 — o servidor recusa e
-      // o card simplesmente fica onde estava.
-      console.error('[canvasz] não deu para mover o item', err)
+      // Mover uma pasta para dentro dela mesma volta 409: o servidor recusa e o
+      // card fica onde estava. Sem este aviso, o usuário só via nada acontecer.
+      const ciclo = err instanceof Error && err.message.includes('409')
+      notificar.erro(
+        ciclo
+          ? 'Uma pasta não pode ser movida para dentro dela mesma.'
+          : 'Não consegui mover o item.',
+        err,
+      )
     }
   }
 

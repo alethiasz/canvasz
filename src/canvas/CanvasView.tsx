@@ -10,6 +10,8 @@ import {
 } from 'tldraw'
 import { deleteNode, getCanvas, listNodes, updateNode, type CanvasNode } from '../api'
 import { useNodesStore } from '../nodes/store'
+import { EmptyHint } from './EmptyHint'
+import { StylePanelSobDemanda } from './StylePanelSobDemanda'
 import { registerFileDrop } from './dropFiles'
 import { loadSession, useCanvasPersistence } from './persistence'
 import { reconcileCanvas } from './reconcile'
@@ -19,7 +21,15 @@ import { isSyncSuppressed } from './sync'
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; store: TLStore; nodes: CanvasNode[] }
+  | { status: 'ready'; store: TLStore; nodes: CanvasNode[]; temSessao: boolean }
+
+/**
+ * O tldraw traz um seletor de páginas próprio. Aqui ele não só confunde — quem
+ * navega entre contextos são as pastas — como é perigoso: shapes criados numa
+ * segunda página ficariam fora do `getCurrentPageShapes()` que a reconciliação
+ * enxerga, ou seja, desenhos sumindo sem explicação.
+ */
+const TLDRAW_COMPONENTS = { PageMenu: null, StylePanel: StylePanelSobDemanda }
 
 const newStore = () =>
   createTLStore({ shapeUtils: ALL_SHAPE_UTILS, bindingUtils: ALL_BINDING_UTILS })
@@ -104,10 +114,12 @@ export function CanvasView({
   canvasId,
   revealNodeId,
   onEditorChange,
+  aoCriar,
 }: {
   canvasId: string
   revealNodeId?: string
   onEditorChange: (editor: Editor | null) => void
+  aoCriar: (kind: 'folder' | 'note') => void
 }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -128,7 +140,13 @@ export function CanvasView({
         ])
         if (cancelled) return
         useNodesStore.getState().setAll(nodes)
-        setState({ status: 'ready', store: buildStore(snapshot, loadSession(canvasId)), nodes })
+        const sessao = loadSession(canvasId)
+        setState({
+          status: 'ready',
+          store: buildStore(snapshot, sessao),
+          nodes,
+          temSessao: sessao !== undefined,
+        })
       } catch (err) {
         if (cancelled) return
         console.error('[canvasz] falha ao carregar canvas', err)
@@ -159,12 +177,20 @@ export function CanvasView({
       store={state.store}
       shapeUtils={ALL_SHAPE_UTILS}
       bindingUtils={ALL_BINDING_UTILS}
+      components={TLDRAW_COMPONENTS}
       onMount={(mounted) => {
         // Reconciliar antes de escutar: os ajustes de reconciliação não podem
         // ser confundidos com ações do usuário.
-        reconcileCanvas(mounted, state.nodes)
-        // Depois de reconciliar: o card procurado pode ter acabado de nascer.
-        if (revealNodeId) revealCard(mounted, revealNodeId)
+        const criouCards = reconcileCanvas(mounted, state.nodes)
+        if (revealNodeId) {
+          // Depois de reconciliar: o card procurado pode ter acabado de nascer.
+          revealCard(mounted, revealNodeId)
+        } else if (criouCards && !state.temSessao) {
+          // Sem câmera salva a vista começa em (0,0), bem embaixo da barra de
+          // ferramentas do tldraw, que escondia os primeiros cards. Enquadrar
+          // resolve isso e ainda mostra tudo que há na pasta.
+          mounted.zoomToFit({ animation: { duration: 200 } })
+        }
         registerFileDrop(mounted, canvasId)
         const stopSync = registerNodeSync(mounted)
         setEditor(mounted)
@@ -174,6 +200,8 @@ export function CanvasView({
           onEditorChange(null)
         }
       }}
-    />
+    >
+      <EmptyHint aoCriar={aoCriar} />
+    </Tldraw>
   )
 }

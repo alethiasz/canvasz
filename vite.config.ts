@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:8787' },
+    // Sobrescrevível para apontar o front a outra instância da API.
+    proxy: { '/api': process.env.CANVASZ_API ?? 'http://localhost:8787' },
   },
 })

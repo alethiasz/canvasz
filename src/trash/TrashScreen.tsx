@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ROOT_CANVAS, emptyTrash, listTrash, purgeNode, updateNode, type TrashItem } from '../api'
+import { notificar } from '../ui/toasts'
 
 const ICON: Record<TrashItem['kind'], string> = { folder: '📁', note: '📄', file: '📦' }
+
+const itens = (n: number) => (n === 1 ? '1 item' : `${n} itens`)
 
 function quando(ms: number): string {
   const minutos = Math.round((Date.now() - ms) / 60000)
@@ -21,7 +24,7 @@ export function TrashScreen() {
     void listTrash()
       .then(({ items: found }) => setItems(found))
       .catch((err) => {
-        console.error('[canvasz] falha ao carregar a lixeira', err)
+        notificar.erro('Não consegui abrir a lixeira.', err)
         setItems([])
       })
   }, [])
@@ -33,19 +36,19 @@ export function TrashScreen() {
       await updateNode(item.id, { restore: true })
       load()
     } catch (err) {
-      console.error('[canvasz] falha ao restaurar', err)
+      notificar.erro('Não consegui restaurar.', err)
     }
   }
 
   async function apagarDeVez(item: TrashItem) {
-    const extra = item.descendants > 0 ? ` e mais ${item.descendants} item(ns) dentro` : ''
+    const extra = item.descendants > 0 ? ` e mais ${itens(item.descendants)} dentro` : ''
     // Isto não tem desfazer: os arquivos saem do disco.
     if (!window.confirm(`Apagar "${item.title}"${extra} de vez? Não dá para desfazer.`)) return
     try {
       await purgeNode(item.id)
       load()
     } catch (err) {
-      console.error('[canvasz] falha ao apagar de vez', err)
+      notificar.erro('Não consegui apagar.', err)
     }
   }
 
@@ -55,7 +58,7 @@ export function TrashScreen() {
       await emptyTrash()
       load()
     } catch (err) {
-      console.error('[canvasz] falha ao esvaziar', err)
+      notificar.erro('Não consegui esvaziar a lixeira.', err)
     }
   }
 
@@ -98,7 +101,7 @@ export function TrashScreen() {
                   <span className="cz-trash__title">{item.title.trim() || 'Sem título'}</span>
                   <span className="cz-trash__meta">
                     apagado {quando(item.deleted_at)}
-                    {item.descendants > 0 && ` · leva ${item.descendants} item(ns) junto`}
+                    {item.descendants > 0 && ` · leva ${itens(item.descendants)} junto`}
                   </span>
                 </span>
                 <button type="button" className="cz-button" onClick={() => restaurar(item)}>

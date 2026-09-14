@@ -4,6 +4,7 @@ import { CanvasScreen } from './canvas/CanvasScreen'
 import { DocsScreen } from './docs/DocsScreen'
 import { CommandPalette } from './search/CommandPalette'
 import { TrashScreen } from './trash/TrashScreen'
+import { Toasts } from './ui/toasts'
 
 function CanvasRoute() {
   const { canvasId } = useParams<{ canvasId: string }>()
@@ -21,6 +22,7 @@ export function App() {
   return (
     <>
       <CommandPalette />
+      <Toasts />
       <Routes>
         <Route path="/" element={<Navigate to={`/canvas/${ROOT_CANVAS}`} replace />} />
         <Route path="/canvas/:canvasId" element={<CanvasRoute />} />

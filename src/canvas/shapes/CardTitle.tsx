@@ -1,7 +1,20 @@
 import { useState } from 'react'
 import { stopEventPropagation } from 'tldraw'
+import { create } from 'zustand'
 import { updateNode } from '../../api'
 import { useNodesStore } from '../../nodes/store'
+import { notificar } from '../../ui/toasts'
+
+/**
+ * Card recém-criado começa com o nome selecionado para digitar por cima.
+ *
+ * Sem isto, criar sempre produzia "Nova pasta" e exigia um segundo gesto para
+ * renomear — e o resultado natural era uma pilha de itens todos chamados
+ * "Nova pasta".
+ */
+const usePendenteDeNome = create<{ nodeId: string | null }>(() => ({ nodeId: null }))
+
+export const nomearAoCriar = (nodeId: string) => usePendenteDeNome.setState({ nodeId })
 
 /**
  * Título do card com renomear no lugar. Compartilhado pelos três tipos de card
@@ -18,7 +31,13 @@ export function CardTitle({
 }) {
   const node = useNodesStore((s) => s.byId[nodeId])
   const upsert = useNodesStore((s) => s.upsert)
+  const pendente = usePendenteDeNome((s) => s.nodeId === nodeId)
   const [renaming, setRenaming] = useState(false)
+
+  if (pendente && !renaming) {
+    usePendenteDeNome.setState({ nodeId: null })
+    setRenaming(true)
+  }
 
   const title = node?.title.trim() || placeholder
 
@@ -30,7 +49,7 @@ export function CardTitle({
       const { node: updated } = await updateNode(node.id, { title: next })
       upsert(updated)
     } catch (err) {
-      console.error('[canvasz] falha ao renomear', err)
+      notificar.erro('Não consegui renomear.', err)
     }
   }
 
@@ -40,6 +59,7 @@ export function CardTitle({
         className="cz-card__input"
         defaultValue={node?.title ?? ''}
         autoFocus
+        onFocus={(e) => e.currentTarget.select()}
         // O tldraw escuta o teclado globalmente (atalhos de ferramenta), então
         // cada tecla precisa parar aqui — senão digitar "d" troca para a caneta
         // no meio do nome.

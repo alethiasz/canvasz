@@ -7,6 +7,16 @@ const GAP = 40
 const COLUMNS = 4
 
 /**
+ * A grade usa um passo único, e não a largura de cada card.
+ *
+ * Pasta, nota e arquivo têm tamanhos diferentes; avançar a coluna pela largura
+ * do card atual desalinhava as colunas e fazia os cards se sobreporem quando
+ * uma pasta caía ao lado de uma nota.
+ */
+const PASSO_X = Math.max(...Object.values(CARD_FOR_KIND).map((c) => c.w)) + GAP
+const PASSO_Y = Math.max(...Object.values(CARD_FOR_KIND).map((c) => c.h)) + GAP
+
+/**
  * Casa o canvas com o banco ao abrir uma pasta.
  *
  * O registro em `nodes` é a verdade sobre existência e hierarquia; o snapshot
@@ -15,7 +25,7 @@ const COLUMNS = 4
  * canvas). Aqui os dois lados voltam a bater — sem tocar em nada que o usuário
  * tenha desenhado à mão.
  */
-export function reconcileCanvas(editor: Editor, nodes: CanvasNode[]): void {
+export function reconcileCanvas(editor: Editor, nodes: CanvasNode[]): boolean {
   const byNodeId = new Map(nodes.map((n) => [n.id, n]))
 
   const seen = new Set<string>()
@@ -30,7 +40,7 @@ export function reconcileCanvas(editor: Editor, nodes: CanvasNode[]): void {
   }
 
   const missing = nodes.filter((n) => n.kind in CARD_FOR_KIND && !seen.has(n.id))
-  if (orphans.length === 0 && missing.length === 0) return
+  if (orphans.length === 0 && missing.length === 0) return false
 
   // Os cards novos entram numa grade abaixo do que já existe, para não cair
   // por cima de desenhos.
@@ -49,8 +59,8 @@ export function reconcileCanvas(editor: Editor, nodes: CanvasNode[]): void {
               return {
                 id: createShapeId(),
                 type: card.type,
-                x: startX + (i % COLUMNS) * (card.w + GAP),
-                y: startY + Math.floor(i / COLUMNS) * (card.h + GAP),
+                x: startX + (i % COLUMNS) * PASSO_X,
+                y: startY + Math.floor(i / COLUMNS) * PASSO_Y,
                 props: { nodeId: node.id, w: card.w, h: card.h },
               }
             }),
@@ -60,4 +70,7 @@ export function reconcileCanvas(editor: Editor, nodes: CanvasNode[]): void {
       { history: 'ignore' },
     )
   })
+
+  // Diz se nasceram cards agora: quem chamou pode querer enquadrar a vista.
+  return missing.length > 0
 }

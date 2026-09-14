@@ -28,6 +28,8 @@ export type TreeNode = {
   kind: NodeKind
   title: string
   updated_at: number
+  /** Só para arquivos: permite o ícone certo na árvore. */
+  mime: string | null
   children: TreeNode[]
 }
 
@@ -101,6 +103,7 @@ export type SearchHit = {
   kind: NodeKind
   title: string
   parent_id: string | null
+  parent_title: string | null
   /** Trecho do corpo com os termos entre « », vindo do snippet() do FTS5. */
   excerpt: string
 }

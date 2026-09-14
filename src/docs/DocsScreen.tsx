@@ -12,8 +12,12 @@ import {
   uploadFile,
   type TreeNode,
 } from '../api'
-import { KIND_ICON, fileMarkdown, type FileMeta } from '../files'
+import { fileMarkdown, type FileMeta } from '../files'
+import { SaveIndicator } from '../ui/SaveIndicator'
+import { marcarErro, marcarSalvando, marcarSalvo } from '../ui/saveStatus'
+import { notificar } from '../ui/toasts'
 import { FilePreview } from './FilePreview'
+import { Tree } from './Tree'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MarkdownPreview } from './MarkdownPreview'
 
@@ -28,77 +32,6 @@ type DocState =
   | { status: 'nota'; markdown: string; title: string; parentId: string | null }
   | { status: 'arquivo'; file: FileMeta; title: string; parentId: string | null }
 
-function TreeBranch({
-  nodes,
-  activeId,
-  onOpen,
-  onMove,
-}: {
-  nodes: TreeNode[]
-  activeId: string | undefined
-  onOpen: (node: TreeNode) => void
-  onMove: (nodeId: string, parent: string) => void
-}) {
-  const [dropTarget, setDropTarget] = useState<string | null>(null)
-
-  return (
-    <ul className="cz-tree">
-      {nodes.map((node) => {
-        const isFolder = node.kind === 'folder'
-        return (
-          <li key={node.id}>
-            <button
-              type="button"
-              className={[
-                'cz-tree__item',
-                node.id === activeId ? 'cz-tree__item--active' : '',
-                dropTarget === node.id ? 'cz-tree__item--drop' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={() => onOpen(node)}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/canvasz-node', node.id)
-                e.dataTransfer.effectAllowed = 'move'
-              }}
-              // Só pasta recebe: soltar sobre uma nota não significa nada.
-              onDragOver={(e) => {
-                if (!isFolder || !e.dataTransfer.types.includes('text/canvasz-node')) return
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-                setDropTarget(node.id)
-              }}
-              onDragLeave={() => setDropTarget((t) => (t === node.id ? null : t))}
-              onDrop={(e) => {
-                setDropTarget(null)
-                if (!isFolder) return
-                e.preventDefault()
-                e.stopPropagation()
-                const dragged = e.dataTransfer.getData('text/canvasz-node')
-                if (dragged && dragged !== node.id) onMove(dragged, node.id)
-              }}
-            >
-              <span className="cz-tree__icon">
-                {isFolder ? '📁' : node.kind === 'note' ? '📄' : KIND_ICON.other}
-              </span>
-              <span className="cz-tree__label">{node.title.trim() || 'Sem título'}</span>
-            </button>
-            {node.children.length > 0 && (
-              <TreeBranch
-                nodes={node.children}
-                activeId={activeId}
-                onOpen={onOpen}
-                onMove={onMove}
-              />
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
 export function DocsScreen({ nodeId }: { nodeId?: string }) {
   const navigate = useNavigate()
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -108,10 +41,12 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
   const [draft, setDraft] = useState('')
   const [mode, setMode] = useState<ViewMode>('dividido')
 
+  const [trilha, setTrilha] = useState<string[]>([])
+
   const refreshTree = useCallback(() => {
     void getTree()
       .then(({ tree: t }) => setTree(t))
-      .catch((err) => console.error('[canvasz] falha ao carregar a árvore', err))
+      .catch((err) => notificar.erro('Não consegui carregar a lista de notas.', err))
   }, [])
 
   // Recarrega ao trocar de nota também: uma nota criada por wikilink precisa
@@ -130,9 +65,16 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
     const job = pending.current
     if (!job) return
     pending.current = null
+    marcarSalvando()
     void putNote(job.id, job.markdown)
-      .then(refreshTree)
-      .catch((err) => console.error('[canvasz] falha ao salvar nota', err))
+      .then(() => {
+        marcarSalvo()
+        refreshTree()
+      })
+      .catch((err) => {
+        marcarErro()
+        notificar.erro('Não consegui salvar a nota. O texto continua aqui na tela.', err)
+      })
   }, [refreshTree])
 
   useEffect(() => {
@@ -161,6 +103,9 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
         if (cancelled) return
         const self = path[path.length - 1]
         const parent = path.length > 1 ? path[path.length - 2]!.id : null
+        // A trilha diz onde o documento mora: sem ela, duas notas de mesmo
+        // nome em pastas diferentes eram indistinguíveis.
+        setTrilha(path.slice(0, -1).map((p) => p.title.trim() || 'Sem título'))
 
         if (self?.kind === 'file') {
           const { file } = await getFile(nodeId)
@@ -202,7 +147,7 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
         const { node } = await uploadFile(parent, file)
         parts.push(fileMarkdown(node.id, file.name, node.mime ?? ''))
       } catch (err) {
-        console.error(`[canvasz] falha ao anexar ${file.name}`, err)
+        notificar.erro(`Não consegui anexar "${file.name}".`, err)
       }
     }
     refreshTree()
@@ -217,7 +162,7 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
       setNote({ ...note, title })
       refreshTree()
     } catch (err) {
-      console.error('[canvasz] falha ao renomear nota', err)
+      notificar.erro('Não consegui renomear.', err)
     }
   }
 
@@ -226,8 +171,11 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
       await updateNode(nodeId, { parent })
       refreshTree()
     } catch (err) {
-      // Mover uma pasta para dentro dela mesma volta 409; a árvore não muda.
-      console.error('[canvasz] não deu para mover', err)
+      const ciclo = err instanceof Error && err.message.includes('409')
+      notificar.erro(
+        ciclo ? 'Uma pasta não pode ser movida para dentro dela mesma.' : 'Não consegui mover.',
+        err,
+      )
     }
   }
 
@@ -238,7 +186,7 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
       refreshTree()
       navigate(`/doc/${node.id}`)
     } catch (err) {
-      console.error('[canvasz] falha ao criar nota', err)
+      notificar.erro('Não consegui criar a nota.', err)
     }
   }
 
@@ -254,6 +202,13 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
           </button>
           <span className="cz-modeswitch__current">modo arquivo</span>
         </span>
+
+        {trilha.length > 0 && (
+          <span className="cz-docpath" title={trilha.join(' › ')}>
+            {trilha.join(' › ')}
+          </span>
+        )}
+        <SaveIndicator />
 
         <div className="cz-actions">
           {note.status === 'nota' && (
@@ -292,9 +247,11 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
           }}
         >
           {tree.length === 0 ? (
-            <p className="cz-sidebar__empty">nada por aqui ainda</p>
+            <p className="cz-sidebar__empty">
+              Nada aqui ainda. Crie sua primeira nota com <b>+ nova nota</b>.
+            </p>
           ) : (
-            <TreeBranch
+            <Tree
               nodes={tree}
               activeId={nodeId}
               onOpen={(node) =>
@@ -307,7 +264,18 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
 
         <section className="cz-doc">
           {note.status === 'vazio' && (
-            <div className="cz-fallback">escolha uma nota na barra lateral</div>
+            <div className="cz-fallback cz-fallback--vazio">
+              {tree.length === 0 ? (
+                <>
+                  <p>Nenhuma nota ainda.</p>
+                  <button type="button" className="cz-button cz-button--primary" onClick={handleNewNote}>
+                    Criar a primeira nota
+                  </button>
+                </>
+              ) : (
+                <p>Escolha uma nota na barra lateral.</p>
+              )}
+            </div>
           )}
           {note.status === 'carregando' && <div className="cz-fallback">carregando nota…</div>}
           {note.status === 'erro' && (

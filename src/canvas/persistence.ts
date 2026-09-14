@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { getSnapshot, type Editor, type TLSessionStateSnapshot } from 'tldraw'
 import { putCanvas } from '../api'
+import { marcarErro, marcarSalvando, marcarSalvo } from '../ui/saveStatus'
+import { notificar } from '../ui/toasts'
 
 const SAVE_DEBOUNCE_MS = 500
 
@@ -29,6 +31,7 @@ export function useCanvasPersistence(editor: Editor | null, canvasId: string): v
 
     const flush = async () => {
       timer = undefined
+      marcarSalvando()
       const { document, session } = getSnapshot(editor.store)
       try {
         localStorage.setItem(sessionKey(canvasId), JSON.stringify(session))
@@ -37,8 +40,11 @@ export function useCanvasPersistence(editor: Editor | null, canvasId: string): v
       }
       try {
         await putCanvas(canvasId, document)
+        marcarSalvo()
       } catch (err) {
-        console.error('[canvasz] falha ao salvar canvas', err)
+        // Perder desenho em silêncio é o pior desfecho possível deste app.
+        marcarErro()
+        notificar.erro('Não consegui salvar o canvas. Sua última alteração pode se perder.', err)
       }
     }
 

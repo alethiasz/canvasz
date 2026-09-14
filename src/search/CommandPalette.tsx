@@ -113,8 +113,14 @@ export function CommandPalette() {
           }}
         />
 
+        {!query.trim() && (
+          <p className="cz-palette__empty">
+            Busca em títulos, no texto das notas e dentro de PDFs e DOCX.
+          </p>
+        )}
+
         {query.trim() && hits.length === 0 && (
-          <p className="cz-palette__empty">nada encontrado</p>
+          <p className="cz-palette__empty">Nada encontrado para “{query.trim()}”.</p>
         )}
 
         {hits.length > 0 && (
@@ -129,7 +135,12 @@ export function CommandPalette() {
                 >
                   <span className="cz-palette__icon">{ICON[hit.kind]}</span>
                   <span className="cz-palette__text">
-                    <span className="cz-palette__title">{hit.title.trim() || 'Sem título'}</span>
+                    <span className="cz-palette__title">
+                      {hit.title.trim() || 'Sem título'}
+                      <span className="cz-palette__onde">
+                        {hit.parent_title?.trim() || 'raiz'}
+                      </span>
+                    </span>
                     <Excerpt text={hit.excerpt} />
                   </span>
                 </button>

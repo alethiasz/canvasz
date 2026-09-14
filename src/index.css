@@ -219,17 +219,42 @@ html, body, #root { height: 100%; margin: 0; }
 }
 .cz-sidebar__empty { color: var(--cz-muted); font-size: 12px; padding: 8px; }
 
-.cz-tree { list-style: none; margin: 0; padding: 0 0 0 10px; }
-.cz-tree:first-child { padding-left: 0; }
+.cz-tree { list-style: none; margin: 0; padding: 0; }
+
+.cz-tree__linha {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 5px;
+  padding-right: 4px;
+}
+.cz-tree__linha:hover { background: #ffffff10; }
+.cz-tree__linha--ativa { background: #24305c; }
+.cz-tree__linha--solta { background: #2a3568; outline: 1px solid var(--cz-accent); }
+
+.cz-tree__seta {
+  flex: none;
+  width: 16px;
+  height: 22px;
+  border: 0;
+  background: none;
+  color: var(--cz-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.cz-tree__seta--vazia { cursor: default; }
+.cz-tree__seta:hover:not(:disabled) { color: var(--cz-fg); }
 
 .cz-tree__item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 4px 6px;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 2px;
   border: 0;
-  border-radius: 5px;
   background: none;
   color: var(--cz-fg);
   font: inherit;
@@ -237,10 +262,22 @@ html, body, #root { height: 100%; margin: 0; }
   text-align: left;
   cursor: pointer;
 }
-.cz-tree__item:hover { background: #ffffff12; }
-.cz-tree__item--active { background: #24305c; }
-.cz-tree__icon { flex: none; font-size: 12px; }
-.cz-tree__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cz-tree__icone { flex: none; font-size: 12px; }
+.cz-tree__rotulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+/* Quantos itens a pasta esconde enquanto está fechada. */
+.cz-tree__contagem {
+  flex: none;
+  font-size: 11px;
+  color: var(--cz-muted);
+  background: #ffffff14;
+  border-radius: 9px;
+  padding: 0 6px;
+}
 
 .cz-doc { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 
@@ -441,6 +478,9 @@ html, body, #root { height: 100%; margin: 0; }
 .cz-palette {
   width: min(680px, 92vw);
   max-height: 70vh;
+  /* Altura pelo conteúdo: antes a caixa reservava 70vh e dois resultados
+     ficavam boiando num vazio enorme. */
+  height: fit-content;
   display: flex;
   flex-direction: column;
   background: #191920;
@@ -585,3 +625,117 @@ html, body, #root { height: 100%; margin: 0; }
 
 /* item da árvore sendo alvo de um arraste */
 .cz-tree__item--drop { background: #2a3568; outline: 1px solid var(--cz-accent); }
+
+/* ---- avisos (antes tudo falhava em silêncio) ----------------------------- */
+
+.cz-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(460px, calc(100vw - 32px));
+}
+
+.cz-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--cz-border);
+  background: #23232b;
+  color: var(--cz-fg);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 8px 28px #00000066;
+  animation: cz-toast-entra 140ms ease-out;
+}
+@keyframes cz-toast-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cz-toast--erro { border-color: #7a3b3b; background: #2e1f1f; }
+.cz-toast--aviso { border-color: #7a6435; background: #2c261a; }
+.cz-toast--ok { border-color: #3a5c40; background: #1e2a20; }
+
+.cz-toast__icone { flex: none; opacity: 0.9; }
+.cz-toast__texto { flex: 1 1 auto; }
+.cz-toast__fechar {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--cz-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.cz-toast__fechar:hover { color: var(--cz-fg); }
+
+/* ---- estado de salvamento ------------------------------------------------ */
+
+.cz-save { font-size: 12px; color: var(--cz-muted); }
+.cz-save--erro { color: #ff9c9c; }
+
+/* ---- canvas vazio -------------------------------------------------------- */
+
+.cz-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 300;
+}
+
+.cz-empty__caixa {
+  pointer-events: all;
+  max-width: 420px;
+  padding: 24px 26px;
+  border-radius: 14px;
+  border: 1px solid var(--cz-border);
+  background: #1b1b21f2;
+  color: var(--cz-fg);
+  text-align: center;
+  box-shadow: 0 16px 44px #00000055;
+}
+.cz-empty__titulo { margin: 0 0 8px; font-size: 17px; }
+.cz-empty__texto { margin: 0 0 16px; font-size: 13.5px; line-height: 1.55; color: #c2c2cc; }
+.cz-empty__acoes { display: flex; gap: 8px; justify-content: center; }
+.cz-empty__dica { margin: 16px 0 0; font-size: 12px; color: var(--cz-muted); line-height: 1.5; }
+.cz-empty__dica kbd {
+  background: #ffffff14;
+  border: 1px solid var(--cz-border);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+/* ---- trilha no modo arquivo --------------------------------------------- */
+
+.cz-docpath {
+  font-size: 12px;
+  color: var(--cz-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40ch;
+}
+
+.cz-fallback--vazio { gap: 14px; }
+.cz-fallback--vazio p { margin: 0; }
+
+/* ---- paleta: altura pelo conteúdo --------------------------------------- */
+
+.cz-palette__onde {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--cz-muted);
+}

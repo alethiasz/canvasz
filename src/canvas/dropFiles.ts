@@ -1,5 +1,6 @@
 import { createShapeId, type Editor } from 'tldraw'
 import { uploadFile } from '../api'
+import { notificar } from '../ui/toasts'
 import { useNodesStore } from '../nodes/store'
 import { CARD_FOR_KIND, type CardShape } from './shapes'
 import { withoutSync } from './sync'
@@ -47,7 +48,7 @@ export async function addFilesToCanvas(
         })
       })
     } catch (err) {
-      console.error(`[canvasz] falha ao subir ${file.name}`, err)
+      notificar.erro(`Não consegui enviar "${file.name}".`, err)
     }
   }
 }

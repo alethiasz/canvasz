@@ -41,6 +41,9 @@ export type SearchHit = {
   kind: 'folder' | 'note' | 'file'
   title: string
   parent_id: string | null
+  /** Nome da pasta onde o item está — dois resultados homônimos precisam
+   *  ser distinguíveis na lista. */
+  parent_title: string | null
   excerpt: string
 }
 
@@ -63,6 +66,7 @@ const searchStmt = db.prepare<[string, number], SearchHit>(`
          n.kind,
          n.title,
          n.parent_id,
+         (SELECT title FROM nodes p WHERE p.id = n.parent_id) AS parent_title,
          snippet(node_fts, 2, '«', '»', '…', 14) AS excerpt
   FROM node_fts f
   JOIN nodes n ON n.id = f.node_id
