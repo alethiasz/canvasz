@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { blobPath, writeBlob } from '../blobs.ts'
+import { UploadTooLarge, blobPath, writeBlob } from '../blobs.ts'
 import { db } from '../db.ts'
 import { guessMime } from '../mime.ts'
 import { enqueueExtraction } from '../extract.ts'
@@ -55,6 +55,21 @@ const createFileNode = db.transaction(
 export const files = new Hono()
 
 /**
+ * Teto por arquivo, em MB (`CANVASZ_MAX_UPLOAD_MB`, padrão 500; 0 desliga).
+ *
+ * Numa VPS dividida com outra aplicação e aberta para qualquer um editar, um
+ * único envio gigante enche o disco e derruba as duas. Lido a cada requisição
+ * para que dê para ajustar sem rebuild e para os testes poderem trocá-lo.
+ */
+function uploadLimitBytes(): number {
+  const mb = Number(process.env.CANVASZ_MAX_UPLOAD_MB ?? 500)
+  return Number.isFinite(mb) && mb > 0 ? Math.floor(mb * 1024 * 1024) : 0
+}
+
+const tooLarge = (limit: number) =>
+  `arquivo maior que o limite de ${Math.round(limit / 1024 / 1024) || limit + ' bytes'}${limit >= 1024 * 1024 ? ' MB' : ''} deste servidor`
+
+/**
  * Upload com o corpo cru transmitido em fluxo — nada de multipart, para não
  * bufferizar o arquivo inteiro em memória. Nome e tipo viajam na query.
  */
@@ -66,13 +81,18 @@ files.put('/raw', async (c) => {
     parent === '__root__' ? null : selectLiveFolder.get(parent) ? parent : undefined
   if (parentId === undefined) return c.json({ error: 'pasta destino inexistente' }, 404)
 
+  const limit = uploadLimitBytes()
+  const declared = Number(c.req.header('content-length') ?? NaN)
+  // Recusa antes de gravar um byte quando o cliente já avisa o tamanho.
+  if (limit > 0 && declared > limit) return c.json({ error: tooLarge(limit) }, 413)
+
   const body = c.req.raw.body
   if (!body) return c.json({ error: 'sem corpo' }, 400)
 
   const mime = guessMime(name, c.req.query('type'))
 
   try {
-    const { sha, size } = await writeBlob(body)
+    const { sha, size } = await writeBlob(body, limit)
     if (size === 0) return c.json({ error: 'arquivo vazio' }, 400)
 
     const id = nanoid(12)
@@ -82,6 +102,7 @@ files.put('/raw', async (c) => {
     enqueueExtraction(id)
     return c.json({ node: selectNodeById.get(id), file: selectFile.get(id) }, 201)
   } catch (err) {
+    if (err instanceof UploadTooLarge) return c.json({ error: tooLarge(err.limitBytes) }, 413)
     console.error('[canvasz] falha no upload', err)
     return c.json({ error: 'falha ao gravar o arquivo' }, 500)
   }

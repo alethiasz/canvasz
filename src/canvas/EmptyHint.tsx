@@ -9,9 +9,16 @@ import { useEditor, useValue } from 'tldraw'
  */
 export function EmptyHint({ aoCriar }: { aoCriar: (kind: 'folder' | 'note') => void }) {
   const editor = useEditor()
-  const vazio = useValue('canvas vazio', () => editor.getCurrentPageShapes().length === 0, [editor])
+  // Some também quando o usuário pega uma ferramenta de desenho: a caixa fica no
+  // centro da tela e capturava o clique, então quem abria um canvas vazio e ia
+  // direto rabiscar no meio simplesmente não conseguia.
+  const mostrar = useValue(
+    'dica de canvas vazio',
+    () => editor.getCurrentPageShapes().length === 0 && editor.getCurrentToolId() === 'select',
+    [editor],
+  )
 
-  if (!vazio) return null
+  if (!mostrar) return null
 
   return (
     <div className="cz-empty">

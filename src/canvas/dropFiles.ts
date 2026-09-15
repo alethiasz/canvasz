@@ -1,5 +1,5 @@
 import { createShapeId, type Editor } from 'tldraw'
-import { uploadFile } from '../api'
+import { UploadRecusado, uploadFile } from '../api'
 import { notificar } from '../ui/toasts'
 import { useNodesStore } from '../nodes/store'
 import { CARD_FOR_KIND, type CardShape } from './shapes'
@@ -48,7 +48,10 @@ export async function addFilesToCanvas(
         })
       })
     } catch (err) {
-      notificar.erro(`Não consegui enviar "${file.name}".`, err)
+      notificar.erro(
+        err instanceof UploadRecusado ? err.message : `Não consegui enviar "${file.name}".`,
+        err,
+      )
     }
   }
 }

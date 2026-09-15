@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { chown, cp, mkdir, readdir, stat } from 'node:fs/promises'
+import { chown, cp, mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -52,4 +52,27 @@ await walk(dest, async (path) => {
 })
 
 console.log(`[backup] ${dest} (${(size / 1024 / 1024).toFixed(1)} MB)`)
+
+/**
+ * Rotação opcional (`CANVASZ_BACKUP_KEEP=N` guarda só os N mais recentes).
+ *
+ * Feita para o backup automático na VPS: sem ela, um cron diário vai
+ * empilhando cópias até encher o disco que a outra aplicação também usa. Sem a
+ * variável nada é apagado — rodado à mão, o backup continua só acrescentando.
+ */
+const manter = Number(process.env.CANVASZ_BACKUP_KEEP ?? 0)
+if (Number.isInteger(manter) && manter > 0) {
+  const anteriores = (await readdir(OUT_ROOT, { withFileTypes: true }))
+    .filter((e) => e.isDirectory() && /^canvasz-\d{4}-\d{2}-\d{2}T/.test(e.name))
+    .map((e) => e.name)
+    // O carimbo ISO ordena por data já em ordem alfabética.
+    .sort()
+    .reverse()
+
+  for (const velho of anteriores.slice(manter)) {
+    if (join(OUT_ROOT, velho) === dest) continue
+    await rm(join(OUT_ROOT, velho), { recursive: true, force: true })
+    console.log(`[backup] rotação: removido ${velho}`)
+  }
+}
 console.log(`[backup] restaurar: pare o app e copie o conteúdo de volta para ${DATA_DIR}`)

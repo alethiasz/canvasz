@@ -9,6 +9,7 @@ import {
   getTree,
   putNote,
   updateNode,
+  UploadRecusado,
   uploadFile,
   type TreeNode,
 } from '../api'
@@ -147,7 +148,10 @@ export function DocsScreen({ nodeId }: { nodeId?: string }) {
         const { node } = await uploadFile(parent, file)
         parts.push(fileMarkdown(node.id, file.name, node.mime ?? ''))
       } catch (err) {
-        notificar.erro(`Não consegui anexar "${file.name}".`, err)
+        notificar.erro(
+          err instanceof UploadRecusado ? err.message : `Não consegui anexar "${file.name}".`,
+          err,
+        )
       }
     }
     refreshTree()

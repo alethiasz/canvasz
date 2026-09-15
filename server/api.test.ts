@@ -157,6 +157,26 @@ describe('arquivos', () => {
     expect((body.file as { mime: string }).mime).toBe('application/octet-stream')
   })
 
+  it('recusa arquivo acima do limite sem deixar nó, blob nem temporário', async () => {
+    const anterior = process.env.CANVASZ_MAX_UPLOAD_MB
+    process.env.CANVASZ_MAX_UPLOAD_MB = String(64 / 1024 / 1024) // 64 bytes
+    try {
+      const grande = new Uint8Array(4096).fill(7)
+      expect((await uploadFile(app, '__root__', 'grande.bin', grande)).status).toBe(413)
+      // Dentro do limite continua passando.
+      expect((await uploadFile(app, '__root__', 'pequeno.bin', new Uint8Array(32))).status).toBe(201)
+    } finally {
+      if (anterior === undefined) delete process.env.CANVASZ_MAX_UPLOAD_MB
+      else process.env.CANVASZ_MAX_UPLOAD_MB = anterior
+    }
+
+    const { db, BLOB_DIR } = await import('./db.ts')
+    const { readdirSync } = await import('node:fs')
+    expect(db.prepare("SELECT COUNT(*) c FROM files WHERE original_name = 'grande.bin'").get()).toMatchObject({ c: 0 })
+    expect(db.prepare('SELECT COUNT(*) c FROM blobs').get()).toMatchObject({ c: 1 })
+    expect(readdirSync(BLOB_DIR).filter((f) => f.startsWith('.tmp-'))).toHaveLength(0)
+  })
+
   it('recusa arquivo vazio e pasta inexistente', async () => {
     expect((await uploadFile(app, '__root__', 'v.txt', new Uint8Array([]))).status).toBe(400)
     expect((await uploadFile(app, 'nao-existe', 'a.txt', 'oi')).status).toBe(404)

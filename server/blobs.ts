@@ -17,7 +17,23 @@ export function blobPath(sha: string): string {
  * que um txt. Se o conteúdo já existir, o arquivo temporário é descartado e o
  * blob existente é reaproveitado.
  */
-export async function writeBlob(body: ReadableStream<Uint8Array>): Promise<{
+/** Lançado quando o corpo passa do limite; o arquivo parcial já foi apagado. */
+export class UploadTooLarge extends Error {
+  // Campo declarado por extenso: o Node roda este arquivo removendo só os tipos
+  // (sem transpilar), e `constructor(readonly x)` é sintaxe que ele recusa —
+  // derrubava o servidor na inicialização, embora tsc e vitest passassem.
+  readonly limitBytes: number
+
+  constructor(limitBytes: number) {
+    super(`upload maior que ${limitBytes} bytes`)
+    this.limitBytes = limitBytes
+  }
+}
+
+export async function writeBlob(
+  body: ReadableStream<Uint8Array>,
+  maxBytes = 0,
+): Promise<{
   sha: string
   size: number
   deduped: boolean
@@ -29,8 +45,11 @@ export async function writeBlob(body: ReadableStream<Uint8Array>): Promise<{
   let size = 0
   const measure = new Transform({
     transform(chunk: Buffer, _enc, done) {
-      hash.update(chunk)
       size += chunk.length
+      // Conferido durante a gravação, e não só pelo Content-Length: esse
+      // cabeçalho é declarado pelo cliente e pode faltar ou mentir.
+      if (maxBytes > 0 && size > maxBytes) return done(new UploadTooLarge(maxBytes))
+      hash.update(chunk)
       done(null, chunk)
     },
   })

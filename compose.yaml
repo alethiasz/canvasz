@@ -11,6 +11,11 @@ services:
     environment:
       CANVASZ_DATA: /app/data
       CANVASZ_BACKUP: /app/backups
+      # Teto por arquivo enviado, em MB (0 desliga). Protege o disco, que numa
+      # VPS costuma ser dividido com outras aplicações.
+      CANVASZ_MAX_UPLOAD_MB: "${CANVASZ_MAX_UPLOAD_MB:-500}"
+      # Quantos backups automáticos manter (0 = todos). Veja DEPLOY-VPS.md.
+      CANVASZ_BACKUP_KEEP: "${CANVASZ_BACKUP_KEEP:-0}"
       # Dono dos arquivos em ./data. O padrão 1000 cobre a maioria dos Linux;
       # se o seu `id -u` for outro, ajuste no .env.
       PUID: "${PUID:-1000}"

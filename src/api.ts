@@ -78,6 +78,9 @@ export function putNote(id: string, markdown: string) {
   })
 }
 
+/** Recusa com motivo que vale mostrar ao usuário como está (ex.: limite). */
+export class UploadRecusado extends Error {}
+
 /**
  * Envia o corpo cru em vez de multipart: o `File` vai direto para o disco do
  * servidor sem passar por memória, então o tamanho não é problema.
@@ -87,6 +90,10 @@ export async function uploadFile(parent: string, file: File) {
   if (file.type) params.set('type', file.type)
 
   const res = await fetch(`/api/files/raw?${params.toString()}`, { method: 'PUT', body: file })
+  if (res.status === 413) {
+    const { error } = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new UploadRecusado(`"${file.name}" não foi enviado: ${error ?? 'arquivo grande demais'}.`)
+  }
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     throw new Error(`upload de ${file.name} → ${res.status} ${detail}`)

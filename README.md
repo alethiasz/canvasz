@@ -81,6 +81,13 @@ Seus dados ficam em **`./data`** no host — banco SQLite e arquivos enviados.
   para `.env` e ajuste com a saída de `id -u` e `id -g`.
 - **Porta ocupada**: defina `CANVASZ_PORT` no `.env`.
 
+## Publicar numa VPS
+
+Para deixar o canvasz acessível por link numa VPS — inclusive dividindo a
+máquina com outra aplicação —, siga o [DEPLOY-VPS.md](DEPLOY-VPS.md). Ele cobre
+porta, firewall, limite de upload e backup automático, e explica o que muda
+quando qualquer pessoa com o link pode editar.
+
 ## Levar seu conteúdo para o GitHub
 
 Seu conteúdo mora em `data/`, que é um **repositório próprio e privado** —
